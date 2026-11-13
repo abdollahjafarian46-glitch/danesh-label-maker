@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>چاپ لیبل A4</title>
+<style>
+  *{box-sizing:border-box}
+  body{font-family:Tahoma,Arial,sans-serif;margin:0;background:#f3f5f7;color:#17202a;padding:16px}
+  .wrap{max-width:760px;margin:auto}
+  h1{font-size:22px;margin:8px 0}
+  p{line-height:1.8;color:#52606d;font-size:14px}
+  .panel{background:#fff;border-radius:16px;padding:16px;margin:14px 0;box-shadow:0 2px 12px #0000000b}
+  label{display:block;font-size:14px;font-weight:700;margin:12px 0 6px}
+  input{font:inherit;width:100%;padding:12px;border:1px solid #ccd3da;border-radius:10px;background:#fff}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  button{border:0;border-radius:12px;padding:14px 18px;font:inherit;font-weight:700;background:#167d55;color:white;width:100%;margin-top:12px}
+  button.secondary{background:#e8eef1;color:#17202a}
+  #preview{background:#dfe4e8;padding:14px;border-radius:12px;overflow:auto;text-align:center}
+  .page{background:white;width:min(100%,420px);aspect-ratio:210/297;margin:auto;box-shadow:0 2px 10px #0002;position:relative;overflow:hidden}
+  .labels{position:absolute;inset:0;display:grid;align-content:start;justify-content:start}
+  .label{overflow:hidden;display:flex;align-items:center;justify-content:center}
+  .label img{width:100%;height:100%;object-fit:fill;display:block}
+  .note{font-size:12px;color:#667085;margin-top:8px}
+  @media print{
+    @page{size:A4 portrait;margin:0}
+    body{padding:0;margin:0;background:#fff}
+    .wrap>.panel:not(.print-panel),h1,.intro{display:none!important}
+    .print-panel{padding:0!important;margin:0!important;box-shadow:none!important;border-radius:0!important}
+    #preview{padding:0!important;background:#fff!important;overflow:visible!important}
+    .page{width:210mm!important;height:297mm!important;aspect-ratio:auto!important;margin:0!important;box-shadow:none!important}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>چاپ تکراری لیبل روی A4</h1>
+  <p class="intro">عکس را انتخاب کن، تعداد و اندازه لیبل را تغییر بده و پیش‌نمایش برگه را برای چاپ یا ذخیره PDF آماده کن.</p>
+  <section class="panel">
+    <label for="photo">۱) انتخاب عکس لیبل</label>
+    <input id="photo" type="file" accept="image/*">
+    <div class="grid">
+      <div><label for="qty">تعداد لیبل</label><input id="qty" type="number" min="1" max="300" value="25"></div>
+      <div><label for="gap">فاصله بین لیبل‌ها (میلی‌متر)</label><input id="gap" type="number" min="0" max="20" step="0.5" value="2"></div>
+      <div><label for="w">عرض هر لیبل (سانتی‌متر)</label><input id="w" type="number" min="0.5" max="21" step="0.1" value="3"></div>
+      <div><label for="h">ارتفاع هر لیبل (سانتی‌متر)</label><input id="h" type="number" min="0.5" max="29.7" step="0.1" value="3"></div>
+      <div><label for="margin">حاشیه برگه (میلی‌متر)</label><input id="margin" type="number" min="0" max="20" step="0.5" value="5"></div>
+      <div><label for="orient">جهت برگه</label><select id="orient" style="width:100%;padding:12px;border:1px solid #ccd3da;border-radius:10px;font:inherit"><option value="portrait">عمودی</option><option value="landscape">افقی</option></select></div>
+    </div>
+    <button id="make">ساخت پیش‌نمایش</button>
+    <button class="secondary" id="print">چاپ / ذخیره PDF</button>
+    <div class="note" id="status">تعداد و ابعاد قابل تغییر هستند. اندازه‌ها برحسب سانتی‌متر و میلی‌متر وارد می‌شوند.</div>
+  </section>
+  <section class="panel print-panel">
+    <strong>پیش‌نمایش برگه</strong>
+    <div id="preview" style="margin-top:12px">
+      <div class="page" id="page"><div class="labels" id="labels"></div></div>
+    </div>
+    <div class="note">برای ذخیره PDF، بعد از زدن «چاپ / ذخیره PDF»، در پنجره چاپ آیفون گزینه اشتراک‌گذاری یا ذخیره در Files را انتخاب کن. در تنظیمات چاپ، مقیاس را روی ۱۰۰٪ بگذار.</div>
+  </section>
+</div>
+<script>
+let imageUrl = null;
+const $ = id => document.getElementById(id);
+$('photo').addEventListener('change', e => {
+  const f=e.target.files && e.target.files[0];
+  if(!f) return;
+  if(imageUrl) URL.revokeObjectURL(imageUrl);
+  imageUrl=URL.createObjectURL(f);
+  build();
+});
+['qty','gap','w','h','margin','orient'].forEach(id => $(id).addEventListener('input', build));
+$('make').addEventListener('click', build);
+$('print').addEventListener('click', () => {
+  if(!imageUrl){$('status').textContent='اول عکس لیبل را انتخاب کن.';return;}
+  build();
+  window.print();
+});
+function build(){
+  const page=$('page'), labels=$('labels');
+  const landscape=$('orient').value==='landscape';
+  page.style.aspectRatio=landscape?'297/210':'210/297';
+  const pageW=landscape?297:210, pageH=landscape?210:297;
+  const qty=Math.max(1,Math.min(300,parseInt($('qty').value)||1));
+  const gap=Math.max(0,parseFloat($('gap').value)||0);
+  const w=Math.max(.5,parseFloat($('w').value)||3)*10;
+  const h=Math.max(.5,parseFloat($('h').value)||3)*10;
+  const margin=Math.max(0,parseFloat($('margin').value)||0);
+  const usableW=pageW-2*margin, usableH=pageH-2*margin;
+  const cols=Math.max(1,Math.floor((usableW+gap)/(w+gap)));
+  const rows=Math.max(1,Math.floor((usableH+gap)/(h+gap)));
+  const capacity=cols*rows;
+  labels.innerHTML='';
+  labels.style.left=margin/pageW*100+'%';
+  labels.style.top=margin/pageH*100+'%';
+  labels.style.width=usableW/pageW*100+'%';
+  labels.style.height=usableH/pageH*100+'%';
+  labels.style.display='grid';
+  labels.style.gridTemplateColumns=`repeat(${cols}, ${w/pageW*100}%)`;
+  labels.style.gridAutoRows=(h/pageH*100)+'%';
+  labels.style.columnGap=(gap/pageW*100)+'%';
+  labels.style.rowGap=(gap/pageH*100)+'%';
+  const count=Math.min(qty,capacity);
+  for(let i=0;i<count;i++){
+    const cell=document.createElement('div');cell.className='label';
+    if(imageUrl){const img=document.createElement('img');img.src=imageUrl;img.alt='لیبل';cell.appendChild(img);}
+    labels.appendChild(cell);
+  }
+  const pageCssW=landscape?'420px':'297px';
+  page.style.width='min(100%, '+pageCssW+')';
+  $('status').textContent=`پیش‌نمایش: ${count} عدد در ${cols} ستون و ${Math.ceil(count/cols)} ردیف. ظرفیت این اندازه روی یک برگه: ${capacity} عدد.`+
+    (qty>capacity?' تعداد درخواستی در یک A4 جا نمی‌شود؛ اندازه لیبل یا فاصله را کمتر کن.':'');
+}
+build();
+</script>
+</body>
+</html>
